@@ -21,7 +21,7 @@
 
 - No analytics, ads, or remote logging from the extension.
 - Private keys never leave the device except as a user-triggered passphrase backup file.
-- Privacy policy: host `store/privacy-policy.md` at a public HTTPS URL and paste that URL here.
+- Privacy policy: https://tylerlhess.github.io/sEnd2End/privacy.html
 
 **Remote code**
 

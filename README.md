@@ -66,6 +66,10 @@ The extension is the preferred crypto boundary. Preferred decrypt paths keep pla
 
 Issues and pull requests are welcome. Keep host allowlists tight. Do not add analytics or remote code loading. Contributions are accepted under the same license.
 
+## Privacy
+
+https://tylerlhess.github.io/sEnd2End/privacy.html
+
 ## License
 
 [PolyForm Perimeter 1.0.0](LICENSE) © Tyler Hess

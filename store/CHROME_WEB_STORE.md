@@ -31,7 +31,7 @@ That build may include `http://127.0.0.1` for local work. The **store** build se
 ## Before first upload
 
 1. Create a [Chrome Web Store developer account](https://chrome.google.com/webstore/devconsole) ($5 one-time).
-2. Host the privacy policy at a public HTTPS URL (required). Source: [privacy-policy.md](privacy-policy.md).
+2. Privacy policy URL (required): https://tylerlhess.github.io/sEnd2End/privacy.html
 3. Prepare store listing screenshots (1280×800 or 640×400): options page with a key fingerprint, a connected site’s crypto UI, encrypt-in-browser on a sample upload. See [listing.md](listing.md).
 4. Fill the dashboard from [listing.md](listing.md) and attach [REVIEWER_NOTES.md](REVIEWER_NOTES.md) in the “Notes for reviewers” field (or paste the short version).
 5. Set distribution: **Unlisted**, **Private**, or **Public**.

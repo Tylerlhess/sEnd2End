@@ -62,7 +62,7 @@ Use the same repository Issues page, or your support email.
 
 ## Privacy policy URL
 
-Host [privacy-policy.md](privacy-policy.md) at a public HTTPS URL and paste that URL here.
+https://tylerlhess.github.io/sEnd2End/privacy.html
 
 ## Screenshots (you capture)
 
