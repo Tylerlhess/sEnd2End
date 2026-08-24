@@ -17,6 +17,7 @@ import {
   loadVault,
   publicKeyView,
   revokeKeyOrigin,
+  setKeyKind,
 } from './keys.js'
 import {
   addSite,
@@ -219,6 +220,11 @@ async function handle(op, payload, sender) {
       kind: payload.kind,
       origin: payload.scope === 'global' ? null : origin || payload.origin,
     })
+    return publicKeyView(record)
+  }
+  if (op === 'set_key_kind') {
+    if (origin) await pickKey(origin, payload.keyId)
+    const record = await setKeyKind(payload.keyId, payload.kind)
     return publicKeyView(record)
   }
   if (op === 'export') {

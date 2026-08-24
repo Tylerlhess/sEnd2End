@@ -605,6 +605,7 @@ const CRYPTO_OPS = new Set([
   'list_keys',
   'prove',
   'authorize_key',
+  'set_key_kind',
 ])
 
 window.addEventListener('keydown', (event) => {

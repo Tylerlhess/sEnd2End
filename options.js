@@ -107,7 +107,7 @@ function renderKeys(keys) {
     body.style.flex = '1'
     body.style.minWidth = '0'
     const title = document.createElement('strong')
-    title.textContent = `${key.label} · ${key.kind}${key.scope === 'site' ? ' · site' : ''}`
+    title.textContent = `${key.label}${key.scope === 'site' ? ' · site' : ''}`
     const fp = document.createElement('code')
     fp.className = 'origin'
     fp.style.marginTop = '6px'
@@ -123,6 +123,26 @@ function renderKeys(keys) {
           ? 'Site key is not currently attached'
           : 'Reusable key; not authorized on a site yet'
     body.append(title, fp, meta)
+    const kindEl = document.createElement('select')
+    kindEl.title = 'Key type'
+    kindEl.append(
+      new Option('Personal', 'personal', false, key.kind !== 'group'),
+      new Option('Group', 'group', false, key.kind === 'group'),
+    )
+    kindEl.addEventListener('change', () => {
+      const next = kindEl.value
+      selectedKeyId = key.keyId
+      void withBusy(kindEl, async () => {
+        try {
+          await send('set_key_kind', { keyId: key.keyId, kind: next })
+          toast(`Marked as ${next}.`, 'ok')
+          await refresh()
+        } catch (err) {
+          kindEl.value = key.kind
+          toast(err.message, 'error')
+        }
+      })
+    })
     const copy = document.createElement('button')
     copy.type = 'button'
     copy.className = 'btn btn-quiet'
@@ -173,7 +193,7 @@ function renderKeys(keys) {
         }
       })
     })
-    row.append(body, copy, authorize, remove)
+    row.append(body, kindEl, copy, authorize, remove)
     row.addEventListener('click', () => {
       selectedKeyId = key.keyId
     })
@@ -237,6 +257,19 @@ document.getElementById('export').addEventListener('submit', (event) => {
   })
 })
 
+document.getElementById('backup').addEventListener('change', async (event) => {
+  const file = event.currentTarget.files[0]
+  if (!file) return
+  try {
+    const backup = JSON.parse(await file.text())
+    if (backup.kind === 'group' || backup.kind === 'personal') {
+      document.getElementById('importKind').value = backup.kind
+    }
+  } catch {
+    // submit will report a bad file
+  }
+})
+
 document.getElementById('import').addEventListener('submit', (event) => {
   event.preventDefault()
   const submit = event.currentTarget.querySelector('button[type="submit"]')
@@ -247,7 +280,7 @@ document.getElementById('import').addEventListener('submit', (event) => {
       const imported = await send('import', {
         backup,
         passphrase: document.getElementById('importPass').value,
-        kind: backup.kind || 'group',
+        kind: document.getElementById('importKind').value,
         scope: 'global',
       })
       document.getElementById('importPass').value = ''

@@ -190,11 +190,12 @@ Optional extra: encrypt the nonce with RSA-OAEP to that public key and send `wra
 
 ```js
 const backup = await send2end('export', { passphrase, keyId })
-await send2end('import', { backup, passphrase, kind: 'group', scope: 'global' })
+await send2end('import', { backup, passphrase, kind: 'personal', scope: 'global' })
+await send2end('set_key_kind', { keyId, kind: 'group' })
 await send2end('clear', { keyId }) // removes one key
 ```
 
-Users can also generate / export / import from the extension **options** page. Your product should still prompt for a backup after generate.
+Pass `kind: 'personal'` or `kind: 'group'` on import. If omitted, the backup’s stored kind is used, or personal if neither is set. `set_key_kind` can change that later. Users can also generate / export / import from the extension **options** page. Your product should still prompt for a backup after generate.
 
 ## 4. Encrypt for recipients
 

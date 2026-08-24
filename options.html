@@ -48,30 +48,6 @@
       .grid-2 > form .btn {
         margin-top: auto;
       }
-      .roles {
-        display: grid;
-        gap: 8px;
-        margin: 0;
-        padding: 0;
-        list-style: none;
-      }
-      .roles li {
-        padding: 9px 11px;
-        border-radius: var(--radius-sm);
-        border: 1px solid var(--line);
-        background: rgba(2, 6, 18, 0.36);
-        font-size: 12.5px;
-        color: var(--muted);
-        transition: border-color 0.16s var(--ease), transform 0.16s var(--ease);
-      }
-      .roles li:hover {
-        border-color: var(--line-strong);
-        transform: translateX(2px);
-      }
-      .roles strong {
-        color: var(--text);
-        font-weight: 600;
-      }
       .sticky-toast {
         position: sticky;
         bottom: 0;
@@ -137,6 +113,13 @@
               <span>Import passphrase</span>
               <input id="importPass" type="password" required minlength="8" autocomplete="current-password" />
             </label>
+            <label class="field">
+              <span>Treat imported key as</span>
+              <select id="importKind">
+                <option value="personal">Personal</option>
+                <option value="group">Group</option>
+              </select>
+            </label>
             <button class="btn btn-block" type="submit">Import backup</button>
           </form>
         </div>
@@ -149,29 +132,6 @@
         toolbar popup on that tab, or with the site’s <strong>Connect sEnd2End</strong> button.
         </p>
         <div id="sites"></div>
-      </section>
-
-      <section class="card">
-        <div class="card-title">Who can open data</div>
-        <p class="hint" style="margin-bottom: 12px">
-          On a connected site you pick recipients by role or by a shared group key. For a friends group,
-          wrap once to the group public key so the site stores a single ciphertext everyone in the group can open.
-        </p>
-        <ul class="roles">
-          <li><strong>Uploader / sender</strong> — always keeps a wrap for data they encrypt.</li>
-          <li><strong>External auditor</strong> — invited reviewers who must open proof.</li>
-          <li><strong>Staff</strong> — owners or operators who must open the data.</li>
-          <li><strong>Platform admin</strong> — only if an admin must open it. Leave off so operators cannot read it.</li>
-        </ul>
-      </section>
-
-      <section class="card">
-        <div class="card-title">Without this extension</div>
-        <p class="hint">
-          Some sites can still generate a key and encrypt in the page with WebCrypto. That is a
-          fallback: a changed site build could see plaintext after decrypt. Keep sEnd2End installed,
-          connect the site, and hold a passphrase backup.
-        </p>
       </section>
 
       <div class="sticky-toast"><p class="toast" id="msg"></p></div>

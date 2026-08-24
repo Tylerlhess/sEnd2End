@@ -58,7 +58,7 @@ Short path:
 5. Open files with `deliver` so plaintext stays in the extension.
 
 Page bridge: `SEND2END_PING` / `SEND2END_CONNECT` / `SEND2END_REQUEST` / `SEND2END_REPLY`.  
-Ops: `status`, `generate`, `import`, `export`, `clear`, `encrypt`, `decrypt`, `deliver`, `wrap`.  
+Ops: `status`, `generate`, `import`, `set_key_kind`, `export`, `clear`, `encrypt`, `decrypt`, `deliver`, `wrap`.  
 Optional lab seed hosts: `extension.config.json`.
 
 ## Threat model

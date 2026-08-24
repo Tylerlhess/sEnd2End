@@ -117,11 +117,30 @@ export async function deleteKey(keyId) {
   return keys
 }
 
+function resolveKind(kind, fallback = 'personal') {
+  if (kind === 'group' || kind === 'personal') return kind
+  return fallback === 'group' ? 'group' : 'personal'
+}
+
+export async function setKeyKind(keyId, kind) {
+  const keys = await loadVault()
+  const record = findKey(keys, keyId)
+  if (!record) throw new Error('Key not found')
+  record.kind = resolveKind(kind)
+  await saveVault(keys)
+  return record
+}
+
 export async function importKeyRecord(backup, passphrase, { label, kind, origin } = {}) {
   const imported = await importBackup(backup, passphrase)
   const keys = await loadVault()
+  const nextKind = resolveKind(kind, backup.kind)
   const existing = findKey(keys, imported.keyId)
   if (existing) {
+    if (kind === 'group' || kind === 'personal') {
+      existing.kind = nextKind
+      await saveVault(keys)
+    }
     if (origin && !keyAllowedForOrigin(existing, origin)) {
       return authorizeKey(imported.keyId, origin)
     }
@@ -129,8 +148,8 @@ export async function importKeyRecord(backup, passphrase, { label, kind, origin 
   }
   const record = normalizeRecord({
     ...imported,
-    label: label || backup.label || (kind === 'group' ? 'Group key' : 'Imported key'),
-    kind: kind === 'group' || backup.kind === 'group' ? 'group' : 'personal',
+    label: label || backup.label || (nextKind === 'group' ? 'Group key' : 'Imported key'),
+    kind: nextKind,
     origins: origin ? [origin] : [],
     createdAt: new Date().toISOString(),
   })
