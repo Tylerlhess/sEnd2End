@@ -124,47 +124,74 @@ Give `deliver` a long timeout (for example 120 seconds). Connect via the SDK alr
 
 ## 3. Keys
 
-### Status
+A user can hold several keys: a personal key, per-site keys, and group keys. `status` lists the keys authorized for **your origin** only.
 
 ```js
 const status = await send2end('status')
 // {
 //   source: 'extension',
-//   hasKey: true,
-//   keyId: '…',
-//   fingerprint: 'hex sha-256 of SPKI',
+//   allowed: true,
 //   origin: 'https://your.example',
-//   allowed: true
+//   hasKey: true,
+//   keyId: '…',              // first authorized key (compat)
+//   fingerprint: '…',
+//   keys: [{ keyId, label, kind: 'personal'|'group', scope, origins, publicKeySpki, fingerprint, algorithm }],
+//   proof: { version: 1, algorithms: ['rsa-pss-sha256', 'rsa-oaep-sha256'], ops: ['list_keys', 'prove'] }
 // }
 ```
 
-`status` is gated like other crypto ops: the origin must be connected.
+Advertise that the site accepts public-key possession proofs when `proof` is present.
 
-### Generate
+### Generate (adds a key; does not replace others)
 
 ```js
-const record = await send2end('generate')
+const personal = await send2end('generate', { scope: 'global', kind: 'personal', label: 'Personal' })
+const siteKey = await send2end('generate', { kind: 'personal', label: 'This site' }) // scoped to this origin
+const group = await send2end('generate', { scope: 'global', kind: 'group', label: 'Friends' })
 ```
 
-Returned fields:
+Returned fields (public only): `keyId`, `label`, `kind`, `scope`, `origins`, `algorithm`, `publicKeySpki`, `fingerprint`.
 
-| Field | Send to your server? |
-|-------|----------------------|
-| `keyId` | Yes |
-| `algorithm` (`rsa-oaep-sha256`) | Yes |
-| `publicKeySpki` (base64 SPKI) | Yes |
-| `fingerprint` (hex) | Yes (display / verify) |
-| `privateKeyPkcs8` | **Never.** Drop it. The extension already stored it. |
+Publish personal/site public keys on the signed-in user. For a **friends group**, one member generates a group key, exports a backup, and the others import that backup. Encrypt **once** to the group `publicKeySpki`. The site stores a single ciphertext; anyone with that group private key can decrypt.
 
-Publish the public material under the signed-in user so others can encrypt **to** them.
+### Prove the user holds a key
 
-### Backup (operators should treat this as required)
+Do not trust a pasted public key alone. Ask the extension to sign a nonce with each advertised key:
 
 ```js
-const backup = await send2end('export', { passphrase })
-// JSON: v, keyId, algorithm, publicKeySpki, fingerprint, kdf, iter, salt, iv, ciphertext
-await send2end('import', { backup, passphrase })
-await send2end('clear') // wipes the local private key only
+const nonce = crypto.randomUUID()
+const { proofs } = await send2end('prove', {
+  nonce,
+  keyIds: status.keys.map((key) => key.keyId), // optional; default = all keys for this origin
+})
+
+for (const proof of proofs) {
+  const publicKey = await crypto.subtle.importKey(
+    'spki',
+    Uint8Array.from(atob(status.keys.find((key) => key.keyId === proof.keyId).publicKeySpki), (c) => c.charCodeAt(0)),
+    { name: 'RSA-PSS', hash: 'SHA-256' },
+    false,
+    ['verify'],
+  )
+  const message = new TextEncoder().encode(`SEND2END-PROOF-v1\n${location.origin}\n${proof.keyId}\n${nonce}`)
+  const ok = await crypto.subtle.verify(
+    { name: 'RSA-PSS', saltLength: 32 },
+    publicKey,
+    Uint8Array.from(atob(proof.signature), (c) => c.charCodeAt(0)),
+    message,
+  )
+  if (!ok) throw new Error('Proof failed')
+}
+```
+
+Optional extra: encrypt the nonce with RSA-OAEP to that public key and send `wrappedChallenges: [{ keyId, wrappedChallenge }]`. The proof then also returns `challenge` (base64 of the decrypted nonce).
+
+### Backup
+
+```js
+const backup = await send2end('export', { passphrase, keyId })
+await send2end('import', { backup, passphrase, kind: 'group', scope: 'global' })
+await send2end('clear', { keyId }) // removes one key
 ```
 
 Users can also generate / export / import from the extension **options** page. Your product should still prompt for a backup after generate.
@@ -212,7 +239,7 @@ Include **every** person who must open the payload, including the sender if they
 
 ## 5. Open ciphertext (`deliver`)
 
-Look up the wrap for the current user’s `keyId`, then:
+Look up the wrap for one of the current user’s authorized `keyId`s (or the group key), then:
 
 ```js
 await send2end(
@@ -221,6 +248,7 @@ await send2end(
     ciphertext,              // base64
     iv,                      // base64
     wrappedDek: wrap.wrapped_dek,
+    keyId: wrap.recipient_key_id, // optional
     filename: 'report.pdf',
     contentType: 'application/pdf',
     mode: 'view',            // or 'download'
@@ -235,7 +263,82 @@ await send2end(
 
 Avoid `decrypt` unless you have a reason to handle bytes in page JS. It returns plaintext **base64** to the caller.
 
-## 6. Add a recipient later (`wrap`)
+## 6. Render encrypted content inline
+
+The extension can replace a placeholder with decrypted text, an image, or a PDF in the same layout position. Other MIME types become a download button. Decrypted bytes stay in the extension content-script world and are rendered inside a **closed shadow root**. No localhost server, disk copy, or plaintext response to page JavaScript is involved.
+
+Serve the AES-GCM ciphertext as raw `application/octet-stream`, then add:
+
+### Image
+
+```html
+<img
+  data-send2end-image
+  data-send2end-src="/api/images/42/ciphertext"
+  data-send2end-iv="BASE64_12_BYTE_IV"
+  data-send2end-wrapped-dek="BASE64_WRAP_FOR_CURRENT_USER_OR_GROUP_KEY"
+  data-send2end-key-id="OPTIONAL_KEY_ID"
+  data-send2end-content-type="image/png"
+  alt="Encrypted profile image"
+  width="640"
+  height="360"
+/>
+```
+
+### Plain text
+
+```html
+<div
+  data-send2end-inline
+  data-send2end-src="/api/messages/42/ciphertext"
+  data-send2end-iv="BASE64_12_BYTE_IV"
+  data-send2end-wrapped-dek="BASE64_WRAP"
+  data-send2end-key-id="OPTIONAL_KEY_ID"
+  data-send2end-content-type="text/plain"
+  aria-label="Encrypted message"
+></div>
+```
+
+Text is decoded as UTF-8 and rendered in a `<pre>` inside the closed shadow root, so whitespace and line breaks are preserved.
+
+### PDF
+
+```html
+<div
+  data-send2end-inline
+  data-send2end-src="/api/documents/42/ciphertext"
+  data-send2end-iv="BASE64_12_BYTE_IV"
+  data-send2end-wrapped-dek="BASE64_WRAP"
+  data-send2end-content-type="application/pdf"
+  data-send2end-filename="document.pdf"
+  style="width: 100%; height: 700px"
+></div>
+```
+
+PDFs use the browser’s PDF viewer in a closed-shadow iframe.
+
+### Other files
+
+Use the same `data-send2end-inline` markup with the real MIME type and `data-send2end-filename`. Unknown/binary types render a **Download filename** button. Set `data-send2end-mode="download"` to force a download button for text, images, or PDFs too.
+
+`data-send2end-ciphertext-url` is an alias for `data-send2end-src`. For small payloads, the site may provide base64 directly with `data-send2end-ciphertext` instead of a URL.
+
+Requirements:
+
+- The ciphertext URL must be on the **same origin** as the page.
+- Fetches include the site’s cookies, use `cache: no-store`, and accept raw binary.
+- The URL response body is the raw AES-GCM ciphertext, including its authentication tag—not JSON or base64.
+- `data-send2end-wrapped-dek` must be the wrap for a key stored in this browser (personal, site, or group).
+- `data-send2end-key-id` is optional; omit it to try every key authorized for this origin.
+- `data-send2end-content-type` controls rendering (`text/*`, `image/*`, `application/pdf`, or download).
+- Inline payloads are limited to 25 MiB.
+- The site must already be connected to sEnd2End.
+
+The original `<img>` is retained but hidden; the extension inserts the closed-shadow renderer next to it. This keeps the decrypted `blob:` URL and image node out of ordinary page DOM access. As with any displayed content, this cannot prevent screenshots or a compromised browser from capturing pixels.
+
+For images, do not put the encrypted endpoint in `src`; use `data-send2end-src` so Chrome does not make a duplicate image request or show a broken-image indicator before decryption.
+
+## 7. Add a recipient later (`wrap`)
 
 If you already have a wrap for the current user, you can re-wrap the same data key for someone new **without** the plaintext:
 

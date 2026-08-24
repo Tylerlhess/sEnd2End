@@ -96,25 +96,21 @@
       </header>
 
       <p class="lede">
-        This extension holds your RSA private key on this device. Connected sites store only
-        ciphertext and data keys wrapped for people you choose — files, messages, or anything else
-        the site encrypts.
+        This extension can hold multiple RSA keys on this device: a personal key, site-specific keys, and optional
+        group keys you share with friends. Connected sites see only public keys you authorize for that origin.
       </p>
 
       <section class="card">
-        <div class="card-title">Your key</div>
-        <div class="value-row">
-          <code class="origin" id="fp">none</code>
-          <button class="btn btn-quiet" id="copyFp" type="button">Copy</button>
-        </div>
-        <p class="hint" style="margin-top: 8px">
-          SHA-256 fingerprint of your public key. Share it to let others verify they encrypted to
-          the right person.
+        <div class="card-title">Keys</div>
+        <p class="hint" style="margin-bottom: 12px">
+          Personal keys can be reused across sites. Site keys only work on the origin they were created for.
+          Group keys are for a shared ciphertext: everyone who imports the same backup can decrypt.
         </p>
+        <div id="keys"></div>
         <hr class="divider" />
         <div class="btn-row">
-          <button class="btn btn-primary" id="generate" type="button">Generate key</button>
-          <button class="btn btn-danger" id="clear" type="button">Remove key</button>
+          <button class="btn btn-primary" id="generate" type="button">New personal key</button>
+          <button class="btn" id="generateGroup" type="button">New group key</button>
         </div>
       </section>
 
@@ -149,8 +145,8 @@
       <section class="card">
         <div class="card-title">Connected sites</div>
         <p class="hint" style="margin-bottom: 12px">
-          These origins can ask the plugin to encrypt and decrypt with your key. Add one from the
-          toolbar popup on that tab, or with the site’s <strong>Connect sEnd2End</strong> button.
+        These origins can ask the plugin to encrypt, decrypt, and prove key possession. Add one from the
+        toolbar popup on that tab, or with the site’s <strong>Connect sEnd2End</strong> button.
         </p>
         <div id="sites"></div>
       </section>
@@ -158,8 +154,8 @@
       <section class="card">
         <div class="card-title">Who can open data</div>
         <p class="hint" style="margin-bottom: 12px">
-          On a connected site you pick recipients by role. The page lists each member’s fingerprint,
-          then wraps the data key to those keys only.
+          On a connected site you pick recipients by role or by a shared group key. For a friends group,
+          wrap once to the group public key so the site stores a single ciphertext everyone in the group can open.
         </p>
         <ul class="roles">
           <li><strong>Uploader / sender</strong> — always keeps a wrap for data they encrypt.</li>

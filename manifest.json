@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "sEnd2End",
   "short_name": "sEnd2End",
-  "version": "1.1.0",
+  "version": "1.4.0",
   "description": "End-to-end encryption on your device. Connect any site you trust; keys stay local so servers never see your private key.",
   "author": "Tyler Hess",
   "icons": {

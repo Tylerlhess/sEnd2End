@@ -7,6 +7,9 @@ const CHANNEL = 'send2end'
 let overlayHost = null
 let overlayUrl = null
 let connectHost = null
+const inlineImages = new Map()
+const inlineImagePending = new WeakSet()
+const MAX_INLINE_BYTES = 25 * 1024 * 1024
 
 function replyToPage(id, origin, extra) {
   window.postMessage({ type: REPLY, id, ...extra }, origin)
@@ -34,6 +37,15 @@ function bytesFromB64(value) {
   const out = new Uint8Array(binary.length)
   for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i)
   return out
+}
+
+function bytesToB64(bytes) {
+  let binary = ''
+  const chunkSize = 0x8000
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize))
+  }
+  return btoa(binary)
 }
 
 function safeFilename(name) {
@@ -165,7 +177,10 @@ function showConnectPrompt(origin, replyId) {
   const allowBtn = document.createElement('button')
   allowBtn.type = 'button'
   allowBtn.className = 'primary'
-  allowBtn.textContent = 'Allow this site'
+  allowBtn.textContent = 'Allow + new site key'
+  const reuseBtn = document.createElement('button')
+  reuseBtn.type = 'button'
+  reuseBtn.textContent = 'Allow + reuse keys'
   const cancelBtn = document.createElement('button')
   cancelBtn.type = 'button'
   cancelBtn.textContent = 'Not now'
@@ -173,8 +188,8 @@ function showConnectPrompt(origin, replyId) {
     closeConnectPrompt()
     if (replyId) replyToPage(replyId, origin, { ok: false, error: 'User declined connect' })
   })
-  allowBtn.addEventListener('click', () => {
-    void runtimeSend('add_site', { origin })
+  function connectWithKeyMode(keyMode) {
+    void runtimeSend('add_site', { origin, keyMode })
       .then((payload) => {
         closeConnectPrompt()
         if (replyId) replyToPage(replyId, origin, { ok: true, payload })
@@ -188,8 +203,10 @@ function showConnectPrompt(origin, replyId) {
           })
         }
       })
-  })
-  actions.append(allowBtn, cancelBtn)
+  }
+  allowBtn.addEventListener('click', () => connectWithKeyMode('ask'))
+  reuseBtn.addEventListener('click', () => connectWithKeyMode('reuse'))
+  actions.append(allowBtn, reuseBtn, cancelBtn)
   panel.append(head, body, actions)
   backdrop.appendChild(panel)
   shadow.append(style, backdrop)
@@ -300,7 +317,295 @@ function deliver(payload) {
   return kind
 }
 
-const CRYPTO_OPS = new Set(['generate', 'import', 'export', 'clear', 'encrypt', 'decrypt', 'deliver', 'wrap', 'status'])
+function inlineImageStyle(source) {
+  const computed = getComputedStyle(source)
+  const rect = source.getBoundingClientRect()
+  const width = source.style.width || (rect.width > 0 ? `${rect.width}px` : source.getAttribute('width'))
+  const height = source.style.height || (rect.height > 0 ? `${rect.height}px` : source.getAttribute('height'))
+  return {
+    display: computed.display === 'inline' ? 'inline-block' : computed.display,
+    width: width && width !== 'auto' ? width : 'auto',
+    height: height && height !== 'auto' ? height : 'auto',
+    maxWidth: computed.maxWidth,
+    maxHeight: computed.maxHeight,
+    objectFit: computed.objectFit,
+    objectPosition: computed.objectPosition,
+    borderRadius: computed.borderRadius,
+  }
+}
+
+function createInlineContentHost(source) {
+  const styleValues = inlineImageStyle(source)
+  const originalDisplay = source.style.getPropertyValue('display')
+  const originalDisplayPriority = source.style.getPropertyPriority('display')
+  const host = document.createElement('span')
+  const label =
+    source instanceof HTMLImageElement
+      ? source.alt
+      : source.getAttribute('aria-label') || source.dataset.send2endFilename
+  host.setAttribute('role', 'group')
+  host.setAttribute('aria-label', label || 'Encrypted content')
+  host.style.setProperty('display', styleValues.display || 'inline-block', 'important')
+  host.style.setProperty('width', styleValues.width, 'important')
+  host.style.setProperty('height', styleValues.height, 'important')
+  host.style.setProperty('max-width', styleValues.maxWidth || '100%', 'important')
+  if (styleValues.maxHeight && styleValues.maxHeight !== 'none') {
+    host.style.setProperty('max-height', styleValues.maxHeight, 'important')
+  }
+  host.style.setProperty('vertical-align', 'middle', 'important')
+
+  const shadow = host.attachShadow({ mode: 'closed' })
+  const style = document.createElement('style')
+  style.textContent = `
+    :host { contain: content; }
+    .frame { box-sizing: border-box; width: 100%; height: 100%; min-width: 48px; min-height: 48px;
+      display: grid; place-items: center; overflow: hidden; border-radius: ${styleValues.borderRadius || '8px'};
+      background: linear-gradient(110deg, #101827 30%, #17263a 45%, #101827 60%);
+      background-size: 220% 100%; animation: shimmer 1.4s linear infinite;
+      color: #a9b7ca; font: 12px/1.4 system-ui, sans-serif; }
+    img { display: block; width: 100%; height: 100%; max-width: 100%; object-fit: ${styleValues.objectFit || 'contain'};
+      object-position: ${styleValues.objectPosition || '50% 50%'}; border-radius: inherit; }
+    iframe { display: block; width: 100%; height: 100%; min-width: 320px; min-height: 480px;
+      border: 0; border-radius: inherit; background: #fff; }
+    pre { box-sizing: border-box; width: 100%; max-height: 70vh; margin: 0; padding: 12px;
+      overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left;
+      color: #e8eefb; background: #0b1220; font: 13px/1.55 ui-monospace, Consolas, monospace; }
+    button { padding: 9px 14px; border: 1px solid rgba(45,212,191,.5); border-radius: 9px;
+      background: #14a99a; color: #04211f; font: 600 13px/1 system-ui, sans-serif; cursor: pointer; }
+    button:hover { filter: brightness(1.08); }
+    .error { padding: 10px; text-align: center; color: #fca5a5; }
+    @keyframes shimmer { to { background-position-x: -220%; } }
+    @media (prefers-reduced-motion: reduce) { .frame { animation: none; } }
+  `
+  const frame = document.createElement('span')
+  frame.className = 'frame'
+  frame.textContent = 'Decrypting…'
+  shadow.append(style, frame)
+
+  source.before(host)
+  source.style.setProperty('display', 'none', 'important')
+  return { host, frame, originalDisplay, originalDisplayPriority }
+}
+
+async function loadInlineCiphertext(source) {
+  const inline = source.dataset.send2endCiphertext
+  if (inline) return inline.replace(/\s+/g, '')
+
+  const sourceUrl =
+    source.dataset.send2endCiphertextUrl || source.dataset.send2endSrc
+  if (!sourceUrl) throw new Error('Missing encrypted content URL')
+  const url = new URL(sourceUrl, window.location.href)
+  if (url.origin !== window.location.origin) {
+    throw new Error('Encrypted content URL must use the page origin')
+  }
+  const response = await fetch(url, {
+    credentials: 'include',
+    cache: 'no-store',
+    headers: { Accept: 'application/octet-stream' },
+  })
+  if (!response.ok) throw new Error(`Encrypted content request failed (${response.status})`)
+  const declaredLength = Number(response.headers.get('content-length') || 0)
+  if (declaredLength > MAX_INLINE_BYTES) throw new Error('Encrypted content is too large')
+  const bytes = new Uint8Array(await response.arrayBuffer())
+  if (bytes.byteLength > MAX_INLINE_BYTES) throw new Error('Encrypted content is too large')
+  return bytesToB64(bytes)
+}
+
+function finishInlineFrame(frame) {
+  frame.style.animation = 'none'
+  frame.style.background = 'transparent'
+}
+
+async function decryptInlineContent(source) {
+  if (!(source instanceof HTMLElement)) return
+  if (inlineImagePending.has(source)) return
+  if (
+    !source.hasAttribute('data-send2end-inline') &&
+    !(source instanceof HTMLImageElement && source.hasAttribute('data-send2end-image'))
+  ) {
+    return
+  }
+  if (!source.dataset.send2endIv || !source.dataset.send2endWrappedDek) return
+  if (
+    !source.dataset.send2endCiphertext &&
+    !source.dataset.send2endCiphertextUrl &&
+    !source.dataset.send2endSrc
+  ) {
+    return
+  }
+
+  const signature = [
+    source.dataset.send2endCiphertext || '',
+    source.dataset.send2endCiphertextUrl || '',
+    source.dataset.send2endSrc || '',
+    source.dataset.send2endIv || '',
+    source.dataset.send2endWrappedDek || '',
+    source.dataset.send2endKeyId || '',
+    source.dataset.send2endContentType || '',
+    source.dataset.send2endFilename || '',
+    source.dataset.send2endMode || '',
+  ].join('\u0000')
+  const existing = inlineImages.get(source)
+  if (existing?.signature === signature) return
+  if (existing) {
+    if (existing.url) URL.revokeObjectURL(existing.url)
+    existing.host.remove()
+    source.style.setProperty('display', existing.originalDisplay, existing.originalDisplayPriority)
+    inlineImages.delete(source)
+  }
+
+  inlineImagePending.add(source)
+  const view = createInlineContentHost(source)
+  inlineImages.set(source, {
+    host: view.host,
+    url: null,
+    signature,
+    originalDisplay: view.originalDisplay,
+    originalDisplayPriority: view.originalDisplayPriority,
+  })
+  try {
+    const gate = await runtimeSend('is_allowed', { origin: window.location.origin })
+    if (!gate.allowed) throw new Error('Connect this site to sEnd2End')
+    const ciphertext = await loadInlineCiphertext(source)
+    const plaintext = await runtimeSend('decrypt', {
+      ciphertext,
+      iv: source.dataset.send2endIv,
+      wrappedDek: source.dataset.send2endWrappedDek,
+      keyId: source.dataset.send2endKeyId || undefined,
+    })
+    if (!source.isConnected) throw new Error('Content was removed')
+    const contentType =
+      source.dataset.send2endContentType ||
+      (source instanceof HTMLImageElement ? 'image/png' : 'application/octet-stream')
+    const filename = source.dataset.send2endFilename || source.getAttribute('download') || 'decrypted-file'
+    const bytes = bytesFromB64(plaintext)
+    const kind = guessKind(filename, contentType)
+    const record = inlineImages.get(source)
+    if (!record) return
+
+    if (kind === 'text' && source.dataset.send2endMode !== 'download') {
+      const pre = document.createElement('pre')
+      pre.textContent = new TextDecoder().decode(bytes)
+      view.frame.replaceChildren(pre)
+      finishInlineFrame(view.frame)
+      return
+    }
+
+    const blob = new Blob([bytes], { type: contentType })
+    const url = URL.createObjectURL(blob)
+    record.url = url
+
+    if (kind === 'image' && source.dataset.send2endMode !== 'download') {
+      const image = document.createElement('img')
+      image.alt =
+        source instanceof HTMLImageElement
+          ? source.alt || ''
+          : source.getAttribute('aria-label') || source.dataset.send2endFilename || ''
+      image.addEventListener('load', () => {
+        view.frame.replaceChildren(image)
+        finishInlineFrame(view.frame)
+      }, { once: true })
+      image.addEventListener('error', () => {
+        URL.revokeObjectURL(url)
+        record.url = null
+        view.frame.className = 'frame error'
+        view.frame.textContent = 'Decrypted image could not be displayed.'
+      }, { once: true })
+      image.src = url
+      return
+    }
+
+    if (kind === 'pdf' && source.dataset.send2endMode !== 'download') {
+      const frame = document.createElement('iframe')
+      frame.title = filename
+      frame.src = url
+      view.frame.replaceChildren(frame)
+      finishInlineFrame(view.frame)
+      return
+    }
+
+    const download = document.createElement('button')
+    download.type = 'button'
+    download.textContent = `Download ${safeFilename(filename)}`
+    download.addEventListener('click', () => {
+      const link = document.createElement('a')
+      link.href = url
+      link.download = safeFilename(filename)
+      link.click()
+    })
+    view.frame.replaceChildren(download)
+    finishInlineFrame(view.frame)
+  } catch (err) {
+    view.frame.className = 'frame error'
+    view.frame.textContent = err instanceof Error ? err.message : 'Could not decrypt content'
+  } finally {
+    inlineImagePending.delete(source)
+  }
+}
+
+function scanInlineContent(root) {
+  if (root instanceof HTMLElement) void decryptInlineContent(root)
+  if (root instanceof Element || root instanceof Document) {
+    root.querySelectorAll('[data-send2end-inline], img[data-send2end-image]').forEach((element) => {
+      void decryptInlineContent(element)
+    })
+  }
+}
+
+function cleanupInlineImages() {
+  for (const [source, record] of inlineImages) {
+    if (source.isConnected) continue
+    if (record.url) URL.revokeObjectURL(record.url)
+    record.host.remove()
+    inlineImages.delete(source)
+  }
+}
+
+const inlineImageObserver = new MutationObserver((mutations) => {
+  for (const mutation of mutations) {
+    if (mutation.type === 'attributes') {
+      scanInlineContent(mutation.target)
+      continue
+    }
+    mutation.addedNodes.forEach(scanInlineContent)
+  }
+  cleanupInlineImages()
+})
+
+inlineImageObserver.observe(document, {
+  subtree: true,
+  childList: true,
+  attributes: true,
+  attributeFilter: [
+    'data-send2end-image',
+    'data-send2end-inline',
+    'data-send2end-src',
+    'data-send2end-ciphertext-url',
+    'data-send2end-ciphertext',
+    'data-send2end-iv',
+    'data-send2end-wrapped-dek',
+    'data-send2end-key-id',
+    'data-send2end-content-type',
+    'data-send2end-filename',
+    'data-send2end-mode',
+  ],
+})
+scanInlineContent(document)
+
+const CRYPTO_OPS = new Set([
+  'generate',
+  'import',
+  'export',
+  'clear',
+  'encrypt',
+  'decrypt',
+  'deliver',
+  'wrap',
+  'status',
+  'list_keys',
+  'prove',
+  'authorize_key',
+])
 
 window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
@@ -361,8 +666,9 @@ window.addEventListener('message', (event) => {
         })
         return
       }
-      const payload =
-        data.op === 'status' ? { ...(data.payload || {}), origin } : data.payload
+      const payload = CRYPTO_OPS.has(data.op)
+        ? { ...(data.payload || {}), origin }
+        : data.payload
       return runtimeSend(data.op, payload).then((responsePayload) => {
         if (data.op === 'deliver') {
           try {

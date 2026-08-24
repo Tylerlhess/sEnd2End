@@ -20,6 +20,8 @@ const pillEl = document.getElementById('pill')
 const keyEl = document.getElementById('keyState')
 const msg = document.getElementById('msg')
 const connectBtn = document.getElementById('connect')
+const keyModeWrap = document.getElementById('keyModeWrap')
+const keyModeEl = document.getElementById('keyMode')
 
 function setPill(text, state) {
   pillEl.textContent = text
@@ -54,12 +56,19 @@ async function currentOrigin() {
   }
 }
 
-async function refreshKeyState() {
+async function refreshKeyState(origin) {
   try {
-    const status = await send('status', {})
-    const short = shortFingerprint(status.fingerprint)
-    keyEl.textContent = short || 'not created yet'
-    keyEl.title = status.fingerprint || ''
+    const status = await send('status', origin ? { origin } : {})
+    const count = status.keys?.length || 0
+    if (count === 0) {
+      keyEl.textContent = 'none yet'
+      keyEl.title = ''
+      return
+    }
+    const first = status.keys[0]
+    const extra = count > 1 ? ` +${count - 1}` : ''
+    keyEl.textContent = `${shortFingerprint(first.fingerprint) || first.label}${extra}`
+    keyEl.title = status.keys.map((key) => `${key.label}: ${key.fingerprint}`).join('\n')
   } catch {
     keyEl.textContent = 'unavailable'
   }
@@ -72,7 +81,8 @@ async function refresh() {
     siteEl.textContent = 'Open an http(s) page to connect it.'
     connectBtn.disabled = true
     connectBtn.textContent = 'Connect this site'
-    await refreshKeyState()
+    keyModeWrap.hidden = true
+    await refreshKeyState(null)
     return
   }
   siteEl.textContent = origin
@@ -81,19 +91,21 @@ async function refresh() {
     setPill('Connected', 'on')
     connectBtn.textContent = 'Already connected'
     connectBtn.disabled = true
+    keyModeWrap.hidden = true
   } else {
     setPill('Not connected', 'off')
     connectBtn.textContent = 'Connect this site'
     connectBtn.disabled = false
+    keyModeWrap.hidden = false
   }
-  await refreshKeyState()
+  await refreshKeyState(origin)
 }
 
 connectBtn.addEventListener('click', async () => {
   toast('')
   setBusy(connectBtn, true)
   try {
-    const result = await send('connect_active_tab')
+    const result = await send('connect_active_tab', { keyMode: keyModeEl.value })
     toast(`Connected ${result.origin}. Reload the page if it still shows offline.`, 'ok')
   } catch (err) {
     toast(err.message, 'error')

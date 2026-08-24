@@ -39,12 +39,19 @@
         gap: 8px;
         margin-top: 12px;
       }
-      footer {
-        margin-top: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
+      .field {
+        display: grid;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      select {
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        color: var(--text);
       }
     </style>
   </head>
@@ -66,9 +73,16 @@
       </div>
       <code class="origin" id="site">Reading the active tab…</code>
       <div class="key-line">
-        <span>Your key</span>
+        <span>Keys on this site</span>
         <code id="keyState">…</code>
       </div>
+      <label class="field" id="keyModeWrap" style="margin-top: 10px">
+        <span>When connecting</span>
+        <select id="keyMode">
+          <option value="ask" selected>Create a new key for this site</option>
+          <option value="reuse">Reuse keys I already have</option>
+        </select>
+      </label>
     </section>
 
     <div class="actions">

@@ -1,6 +1,6 @@
 {
   "name": "@send2end/browser-extension",
-  "version": "1.1.0",
+  "version": "1.4.0",
   "description": "sEnd2End — on-device end-to-end encryption for the web (Chrome/Edge Manifest V3).",
   "license": "PolyForm-Perimeter-1.0.0",
   "type": "module",

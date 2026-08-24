@@ -14,6 +14,9 @@ Source is available under the [PolyForm Perimeter License 1.0.0](LICENSE). You m
 - RSA-OAEP 4096-bit user keys held in extension storage
 - AES-256-GCM payload encryption; per-recipient wrapped data keys
 - Preferred decrypt path keeps plaintext out of page JavaScript
+- Multiple keys: personal, per-site, and shared group keys
+- Public-key possession proofs (`prove`) so a site can confirm the browser holds advertised keys
+- Inline decryption for text, images, and PDFs; download controls for other files
 - Passphrase-protected key backup import/export
 - Dark, self-contained UI: popup, options page, and in-page prompts share `ui.css`
 - Site pack (lab hosts) and Chrome Web Store pack (no seeded production hosts)

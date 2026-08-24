@@ -110,6 +110,49 @@ export async function decryptFile(ciphertextB64, ivB64, wrappedDekB64, privateKe
   return bytesToBase64(plain)
 }
 
+export async function decryptFileWithKeys(ciphertextB64, ivB64, wraps, keys) {
+  let lastError = new Error('No key could unwrap this data')
+  for (const wrap of wraps) {
+    const preferred = wrap.keyId ? keys.filter((record) => record.keyId === wrap.keyId) : keys
+    const ordered = preferred.length > 0 ? preferred : keys
+    for (const record of ordered) {
+      try {
+        const plaintext = await decryptFile(ciphertextB64, ivB64, wrap.wrappedDek, record.privateKeyPkcs8)
+        return { plaintext, keyId: record.keyId }
+      } catch (err) {
+        lastError = err
+      }
+    }
+  }
+  throw lastError
+}
+
+export async function signProof(privateKeyPkcs8, messageBytes) {
+  const key = await crypto.subtle.importKey(
+    'pkcs8',
+    base64ToBytes(privateKeyPkcs8),
+    { name: 'RSA-PSS', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const signature = await crypto.subtle.sign({ name: 'RSA-PSS', saltLength: 32 }, key, messageBytes)
+  return bytesToBase64(signature)
+}
+
+export async function decryptProofChallenge(privateKeyPkcs8, wrappedChallengeB64) {
+  const privateKey = await importPrivateKey(privateKeyPkcs8)
+  const raw = await crypto.subtle.decrypt(
+    { name: 'RSA-OAEP' },
+    privateKey,
+    base64ToBytes(wrappedChallengeB64),
+  )
+  return bytesToBase64(raw)
+}
+
+export function proofMessageBytes(origin, keyId, nonce) {
+  return new TextEncoder().encode(`SEND2END-PROOF-v1\n${origin}\n${keyId}\n${nonce}`)
+}
+
 export async function wrapDekForRecipient(wrappedDekB64, privateKeyPkcs8, recipient) {
   const dek = await unwrapDek(wrappedDekB64, privateKeyPkcs8)
   const rawDek = new Uint8Array(await crypto.subtle.exportKey('raw', dek))
