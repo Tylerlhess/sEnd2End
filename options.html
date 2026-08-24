@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>sEnd2End — keys &amp; connected sites</title>
+    <link rel="stylesheet" href="ui.css" />
+    <style>
+      body {
+        padding: 32px 20px 64px;
+      }
+      .wrap {
+        max-width: 44rem;
+        margin: 0 auto;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      header .brand img {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+      }
+      header .brand-name {
+        font-size: 20px;
+      }
+      header .brand-sub {
+        font-size: 12.5px;
+      }
+      .lede {
+        color: var(--muted);
+        font-size: 13px;
+        margin-bottom: 18px;
+      }
+      .grid-2 {
+        display: grid;
+        gap: 12px 16px;
+        grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+      }
+      .grid-2 > form {
+        display: flex;
+        flex-direction: column;
+      }
+      .grid-2 > form .btn {
+        margin-top: auto;
+      }
+      .roles {
+        display: grid;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .roles li {
+        padding: 9px 11px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--line);
+        background: rgba(2, 6, 18, 0.36);
+        font-size: 12.5px;
+        color: var(--muted);
+        transition: border-color 0.16s var(--ease), transform 0.16s var(--ease);
+      }
+      .roles li:hover {
+        border-color: var(--line-strong);
+        transform: translateX(2px);
+      }
+      .roles strong {
+        color: var(--text);
+        font-weight: 600;
+      }
+      .sticky-toast {
+        position: sticky;
+        bottom: 0;
+        padding: 10px 0 0;
+      }
+      form {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="brand">
+          <img src="icons/logo.svg" alt="" />
+          <div>
+            <div class="brand-name">s<span>End2End</span></div>
+            <div class="brand-sub">On-device end-to-end encryption</div>
+          </div>
+        </div>
+        <span class="pill is-on">Keys never leave this device</span>
+      </header>
+
+      <p class="lede">
+        This extension holds your RSA private key on this device. Connected sites store only
+        ciphertext and data keys wrapped for people you choose — files, messages, or anything else
+        the site encrypts.
+      </p>
+
+      <section class="card">
+        <div class="card-title">Your key</div>
+        <div class="value-row">
+          <code class="origin" id="fp">none</code>
+          <button class="btn btn-quiet" id="copyFp" type="button">Copy</button>
+        </div>
+        <p class="hint" style="margin-top: 8px">
+          SHA-256 fingerprint of your public key. Share it to let others verify they encrypted to
+          the right person.
+        </p>
+        <hr class="divider" />
+        <div class="btn-row">
+          <button class="btn btn-primary" id="generate" type="button">Generate key</button>
+          <button class="btn btn-danger" id="clear" type="button">Remove key</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">Backup</div>
+        <p class="hint" style="margin-bottom: 12px">
+          A passphrase-protected backup is the only way to recover this key on another browser or
+          machine. Store it offline.
+        </p>
+        <div class="grid-2">
+          <form id="export">
+            <label class="field">
+              <span>Export passphrase</span>
+              <input id="exportPass" type="password" required minlength="8" autocomplete="new-password" />
+            </label>
+            <button class="btn btn-block" type="submit">Download backup</button>
+          </form>
+          <form id="import">
+            <label class="field">
+              <span>Backup file</span>
+              <input id="backup" type="file" accept="application/json,.json" required />
+            </label>
+            <label class="field">
+              <span>Import passphrase</span>
+              <input id="importPass" type="password" required minlength="8" autocomplete="current-password" />
+            </label>
+            <button class="btn btn-block" type="submit">Import backup</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">Connected sites</div>
+        <p class="hint" style="margin-bottom: 12px">
+          These origins can ask the plugin to encrypt and decrypt with your key. Add one from the
+          toolbar popup on that tab, or with the site’s <strong>Connect sEnd2End</strong> button.
+        </p>
+        <div id="sites"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">Who can open data</div>
+        <p class="hint" style="margin-bottom: 12px">
+          On a connected site you pick recipients by role. The page lists each member’s fingerprint,
+          then wraps the data key to those keys only.
+        </p>
+        <ul class="roles">
+          <li><strong>Uploader / sender</strong> — always keeps a wrap for data they encrypt.</li>
+          <li><strong>External auditor</strong> — invited reviewers who must open proof.</li>
+          <li><strong>Staff</strong> — owners or operators who must open the data.</li>
+          <li><strong>Platform admin</strong> — only if an admin must open it. Leave off so operators cannot read it.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <div class="card-title">Without this extension</div>
+        <p class="hint">
+          Some sites can still generate a key and encrypt in the page with WebCrypto. That is a
+          fallback: a changed site build could see plaintext after decrypt. Keep sEnd2End installed,
+          connect the site, and hold a passphrase backup.
+        </p>
+      </section>
+
+      <div class="sticky-toast"><p class="toast" id="msg"></p></div>
+    </div>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

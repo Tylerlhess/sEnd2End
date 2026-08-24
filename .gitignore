@@ -1,0 +1,18 @@
+# Build
+dist/
+node_modules/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Secrets / local
+.env
+.env.*
+*.pem
+*.key
+credentials.json

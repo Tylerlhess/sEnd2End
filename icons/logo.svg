@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="sEnd2End">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2dd4bf" />
+      <stop offset="1" stop-color="#0d6c64" />
+    </linearGradient>
+    <mask id="cut">
+      <rect x="0" y="0" width="128" height="128" fill="#000" />
+      <path
+        d="M34 71a13 13 0 0 1 13-13h34a13 13 0 0 1 13 13v22a13 13 0 0 1-13 13H47a13 13 0 0 1-13-13z"
+        fill="#fff"
+      />
+      <path
+        d="M64 32a24 24 0 0 1 24 24v8h-9v-8a15 15 0 0 0-30 0v8h-9v-8a24 24 0 0 1 24-24z"
+        fill="#fff"
+      />
+      <circle cx="64" cy="78" r="7.5" fill="#000" />
+      <path d="M61 78h6l3.5 18h-13z" fill="#000" />
+    </mask>
+  </defs>
+  <rect x="3" y="3" width="122" height="122" rx="30" fill="url(#tile)" />
+  <rect x="0" y="0" width="128" height="128" fill="#f8fafc" mask="url(#cut)" />
+</svg>

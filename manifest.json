@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "sEnd2End",
+  "short_name": "sEnd2End",
+  "version": "1.1.0",
+  "description": "End-to-end encryption on your device. Connect any site you trust; keys stay local so servers never see your private key.",
+  "author": "Tyler Hess",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "options_page": "options.html",
+  "action": {
+    "default_title": "sEnd2End",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "http://127.0.0.1:*/*"
+  ]
+}

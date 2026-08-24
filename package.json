@@ -1,0 +1,45 @@
+{
+  "name": "@send2end/browser-extension",
+  "version": "1.1.0",
+  "description": "sEnd2End — on-device end-to-end encryption for the web (Chrome/Edge Manifest V3).",
+  "license": "PolyForm-Perimeter-1.0.0",
+  "type": "module",
+  "keywords": [
+    "e2ee",
+    "end-to-end-encryption",
+    "chrome-extension",
+    "webcrypto",
+    "privacy",
+    "send2end"
+  ],
+  "scripts": {
+    "icons": "node scripts/write-icons.mjs",
+    "pack": "node scripts/pack.mjs --target all",
+    "pack:site": "node scripts/pack.mjs --target site",
+    "pack:store": "node scripts/pack.mjs --target store",
+    "build": "npm run pack"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "background.js",
+    "content.js",
+    "crypto.js",
+    "sites.js",
+    "options.html",
+    "options.js",
+    "popup.html",
+    "popup.js",
+    "ui.css",
+    "icons",
+    "sdk",
+    "seed-sites.json",
+    "extension.config.json",
+    "scripts",
+    "store",
+    "INTEGRATING.md",
+    "README.md",
+    "LICENSE"
+  ]
+}

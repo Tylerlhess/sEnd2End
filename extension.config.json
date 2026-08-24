@@ -1,0 +1,46 @@
+{
+  "name": "sEnd2End",
+  "short_name": "sEnd2End",
+  "version": "1.1.0",
+  "description": "End-to-end encryption on your device. Connect any site you trust; keys stay local so servers never see your private key.",
+  "homepage_url": "",
+  "author": "Tyler Hess",
+  "package_slug": "send2end",
+  "channel": "send2end",
+  "web_store_url": "",
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "content_matches": ["http://*/*", "https://*/*"],
+  "seed_hosts": {
+    "site": [
+      "http://127.0.0.1/*",
+      "http://127.0.0.1:*/*"
+    ],
+    "store": []
+  },
+  "seed_origins": {
+    "site": [
+      "http://127.0.0.1"
+    ],
+    "store": []
+  },
+  "permissions": ["storage", "activeTab", "scripting"],
+  "files": [
+    "background.js",
+    "content.js",
+    "crypto.js",
+    "sites.js",
+    "options.html",
+    "options.js",
+    "popup.html",
+    "popup.js",
+    "ui.css",
+    "icons/logo.svg",
+    "sdk/send2end-connect.js",
+    "seed-sites.json"
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
